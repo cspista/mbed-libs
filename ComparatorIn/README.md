@@ -1,0 +1,194 @@
+# ComparatorIn - Archival Copy for FRDM-KL25Z
+
+> **Archival Notice**
+> This repository contains an archived copy of the **ComparatorIn** library original written and published by **Frank Vannieuwkerke** for the NXP FRDM-KL25Z development board. 
+> 
+> Following the deprecation and retirement of the legacy Mbed OS platform and the deletion of user-contributed code repositories on `developer.mbed.org`, this repository was created to preserve and host this code for public availability.
+> 
+> - **Original Author:** Frank Vannieuwkerke
+> - **Original URL:** `https://developer.mbed.org/users/frankvnk/code/ComparatorIn/`
+> - **Target Microcontroller / Board:** FRDM-KL25Z (MKL25Z128VLK4 / ARM Cortex-M0+)
+
+---
+
+## Overview
+
+The `ComparatorIn` C++ class provides a high-level driver interface for configuring and controlling the analog comparator (`CMP0`) hardware block on the NXP **FRDM-KL25Z** development board using Mbed OS. 
+
+It allows hardware-level voltage comparison with configurable hysteresis, input multiplexing, integrated DAC reference sources, interrupt callbacks on rising/falling edges, and optional output routing to external physical pins.
+
+---
+
+## Pin Mapping & Input Channels
+
+The analog comparator on the FRDM-KL25Z supports multiple input sources, including external physical micro-controller pins, an integrated 12-bit DAC output, internal bandgap references, and an internal 6-bit DAC ladder network.
+
+| Pin / Source | Channel | Signal Name | Description / Notes |
+| :--- | :--- | :--- | :--- |
+| `PTC6` | IN0 | `CMP0_IN0` | Non-inverting or Inverting pin input |
+| `PTC7` | IN1 | `CMP0_IN1` | Non-inverting or Inverting pin input |
+| `PTC8` | IN2 | `CMP0_IN2` | Non-inverting or Inverting pin input |
+| `PTC9` | IN3 | `CMP0_IN3` | Non-inverting or Inverting pin input |
+| `PTE30` | IN4 | `CMP0_IN4` | External 12-bit DAC output (`DAC0`) auto-connected to `IN4` |
+| `PTE29` | IN5 | `CMP0_IN5` | Non-inverting or Inverting pin input |
+| *(Internal)* | IN6 | Bandgap | Internal 1V PMC Bandgap reference voltage *(Requires PMC Bandgap Buffer enabled)* |
+| `NC` | IN7 | Internal DAC | Connects channel input to the internal **6-bit DAC** reference source |
+
+### Special Pin Considerations:
+* **`NC` (Not Connected):** Passing `NC` as a constructor or pin selector argument explicitly assigns the internal **6-bit DAC** to that input channel.
+* **`PTE30`:** Selecting pin `PTE30` automatically instantiates and initializes the onboard 12-bit hardware DAC (`AnalogOut`), routing its output directly to comparator channel 4.
+
+---
+
+## Key Member Functions Overview
+
+| Function | Signature / Usage | Description |
+| :--- | :--- | :--- |
+| **Constructor** | `ComparatorIn(PinName pinP, PinName pinM)` | Instantiates a `ComparatorIn` object, mapping `pinP` to the non-inverting input (+) and `pinM` to the inverting input (-). |
+| **`OutputPin`** | `void OutputPin(PinName ope)` | Routes the comparator output signal (`CMPO`) to an external physical pin (`PTC0`, `PTC5`, or `PTE0`). Pass `NC` to disconnect output routing. |
+| **`treshold`** | `void treshold(float vo_pct)` | Sets the reference threshold voltage for either the internal 6-bit or 12-bit DAC as a fraction of full scale (`0.0` to `1.0`, where `1.0` corresponds to `VREFH` / $V_{DD}$, typically 3.3V). |
+| **`rising`** | `void rising(void(*fptr)(void))` | Enables rising edge detection interrupts and assigns a user-defined C-style function callback (`fptr`). Pass `NULL` to disable. |
+| **`falling`** | `void falling(void(*fptr)(void))` | Enables falling edge detection interrupts and assigns a user-defined C-style function callback (`fptr`). Pass `NULL` to disable. |
+| **`status`** | `unsigned char status(void)` | Queries the immediate digital state of the comparator output ($0$: $V_{inP} < V_{inM}$, $1$: $V_{inP} > V_{inM}$). |
+
+---
+
+## Detailed API Reference
+
+### Initialization & Configuration
+
+#### `ComparatorIn(PinName pinP, PinName pinM)`
+Constructor to setup the comparator hardware module (`CMP0`). 
+* Sets initial high-speed operation mode, continuous conversion, and enables the internal 6-bit DAC reference initialized at $V_{DD}/2$ (1.65V).
+* **Valid Pin Arguments:** `PTC6`, `PTC7`, `PTC8`, `PTC9`, `PTE30`, `PTE29`, `NC`.
+
+#### `void hysteresis(unsigned char hyst)`
+Configures the hardware digital hysteresis level to prevent high-frequency chatter near threshold transitions.
+* `0`: 5 mV
+* `1`: 10 mV
+* `2`: 20 mV
+* `3`: 30 mV
+
+#### `void PowerMode(unsigned char pmode)`
+Configures current consumption versus propagation speed.
+* `0`: Low-Speed (LS) mode (lower power consumption, slower output propagation delay)
+* `1`: High-Speed (HS) mode (higher power consumption, faster response speed)
+
+#### `void invert(unsigned char inv)`
+Controls the output signal polarity.
+* `0`: Normal polarity (active high when $V_{inP} > V_{inM}$)
+* `1`: Inverted polarity
+
+---
+
+### Reference DAC & Threshold Control
+
+#### `void treshold(float vo_pct)`
+Adjusts the analog threshold level generated by the internal DAC.
+* **`vo_pct`:** A floating-point multiplier between `0.0` (0V) and `1.0` (3.3V).
+* If `NC` was chosen for `pinP` or `pinM`, this function computes and sets the **6-bit DAC** register ($V_{out} = V_{in} \cdot \frac{\text{val}}{64}$).
+* If `PTE30` was chosen, it controls the **12-bit DAC** reference ($V_{out} = V_{in} \cdot \text{val}$).
+
+#### `void RefSource(unsigned char res)`
+Selects the ladder network reference voltage for the 6-bit internal DAC.
+* `0`: $V_{in1} = V_{REFH}$
+* `1`: $V_{in2} = V_{DD}$ (Recommended for optimal ADC operation)
+
+---
+
+### Interrupt Handling & Callbacks
+
+#### `void rising(void(*fptr)(void))`
+Attaches an ISR callback function executed automatically when the comparator output transitions from LOW to HIGH.
+
+#### `void falling(void(*fptr)(void))`
+Attaches an ISR callback function executed automatically when the comparator output transitions from HIGH to LOW.
+
+---
+
+### Advanced Hardware Features
+
+| Function | Parameter / Range | Description |
+| :--- | :--- | :--- |
+| **`FilterCount`** | `fico`: `1` .. `7` | Sets the required number of consecutive agreement samples before an output filter state change is accepted. |
+| **`FilterPeriod`** | `fipe`: `0` .. `255` | Sets the sampling period of the output filter in bus clock cycles (`0` disables filter). |
+| **`OutputSelect`** | `cos`: `0` or `1` | Selects between filtered output (`0` = `COUT`) and unfiltered output (`1` = `COUTA`). |
+| **`SampleMode`** | `samp_en`: `0` or `1` | Controls clock-sampled operation mode (cannot be enabled simultaneously with Window Mode). |
+| **`WindowMode`** | `win_en`: `0` or `1` | Enables windowing mode (cannot be enabled simultaneously with Sample Mode). |
+| **`TrigMode`** | `trig_en`: `0` or `1` | Enables external timer trigger compare mode. |
+| **`dma`** | `dmaen`: `0` or `1` | Enables or disables hardware DMA request assertion on edge flags (`CFR` / `CFF`). |
+| **`enable`** | `en`: `0` or `1` | Enables (`1`) or powers down (`0`) the comparator peripheral module. |
+
+---
+
+## Code Examples
+
+### Example 1: Basic Analog Threshold Comparison
+
+Compares an analog signal on `PTC6` against the internal 6-bit DAC set to 1.25V ($1.25V / 3.3V \approx 0.3788$).
+
+```cpp
+#include "mbed.h"
+#include "ComparatorIn.h"
+
+// Non-inverting input on PTC6, Inverting input connected to Internal 6-bit DAC (NC)
+ComparatorIn cmp(PTC6, NC);
+DigitalOut led(LED1);
+
+int main() {
+    // Set internal threshold to ~1.25V (3.3V * 0.3788)
+    cmp.treshold(1.25f / 3.3f);
+    
+    while(1) {
+        if (cmp.status() == 1) {
+            led = 0; // Turn on LED if V_PTC6 > 1.25V
+        } else {
+            led = 1; // Turn off LED
+        }
+        wait_ms(100);
+    }
+}
+```
+
+### Example 2: Interrupt-Driven Edge Detection
+
+Triggers an interrupt callback routine whenever an input voltage crosses a specified threshold.
+
+```cpp
+#include "mbed.h"
+#include "ComparatorIn.h"
+
+ComparatorIn cmp(PTC7, NC);
+DigitalOut red_led(LED1);
+
+void on_rising_edge() {
+    red_led = 0; // High voltage detected
+}
+
+void on_falling_edge() {
+    red_led = 1; // Normal voltage restored
+}
+
+int main() {
+    // Set hysteresis to 20mV for noise immunity
+    cmp.hysteresis(2);
+    
+    // Set 50% VDD threshold (1.65V)
+    cmp.treshold(0.5f);
+    
+    // Attach ISR callbacks
+    cmp.rising(&on_rising_edge);
+    cmp.falling(&on_falling_edge);
+    
+    while(1) {
+        // Sleep or execute main loop task
+        sleep();
+    }
+}
+```
+
+---
+
+## License
+
+This library is released under the original open-source terms provided by the original author (Frank Vannieuwkerke). Please refer to the source files for copyright details.

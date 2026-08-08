@@ -1,0 +1,6 @@
+# Fordítási kimenetek és Release mappák kizárása
+Release/
+[Rr]elease/
+
+# Windows Thumbnail gyorsítótár
+Thumbs.db
