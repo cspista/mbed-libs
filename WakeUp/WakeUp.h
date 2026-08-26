@@ -36,6 +36,7 @@
  * }
  * @endcode
  */
+
 class WakeUp
 {
 public:
@@ -91,9 +92,9 @@ public:
     */
     static void calibrate(void);
 
+    static void irq_handler(void);
 
 private:
     static Callback<void()> callback;
-    static void irq_handler(void);
     static float cycles_per_ms;
 };

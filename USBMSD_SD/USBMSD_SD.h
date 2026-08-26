@@ -1,4 +1,4 @@
-/* mbed USBMSD_Ram Library, for providing file access to SD cards
+/* mbed USBMSD_SD Library, for providing file access to SD cards
  * Copyright (c) 2008-2010, sford
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,20 +19,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
-#ifndef USBMSD_RAM_H
-#define USBMSD_RAM_H
-
+ 
+#ifndef USBMSD_SD_H
+#define USBMSD_SD_H
+ 
 #include "mbed.h"
 #include "USBMSD.h"
-
+ 
 /** Use the SDcard as mass storage device using the USBMSD class
  *
  * @code
  * #include "mbed.h"
- * #include "USBMSD_Ram.h"
+ * #include "USBMSD_SD.h"
  *
- * USBMSD_Ram sd(p5, p6, p7, p8);
+ * USBMSD_SD sd(p5, p6, p7, p8);
  *
  * int main() {
  *   while(1);
@@ -40,25 +40,47 @@
  *
  * @endcode
  */
-class USBMSD_Ram : public USBMSD {
+class USBMSD_SD : public USBMSD {
 public:
-
-   
-    USBMSD_Ram();
+ 
+    /** Create the File System for accessing an SD Card using SPI
+     *
+     * @param mosi SPI mosi pin connected to SD Card
+     * @param miso SPI miso pin conencted to SD Card
+     * @param sclk SPI sclk pin connected to SD Card
+     * @param cs   DigitalOut pin used as SD Card chip select
+     * @param name The name used to access the virtual filesystem
+     */
+    USBMSD_SD(PinName mosi, PinName miso, PinName sclk, PinName cs);
     virtual int disk_initialize();
-    //--- Updated to match the current USBMSD interface in the USBDevice library --
-    virtual int disk_write(const uint8_t * data, uint64_t block, uint8_t count);
-    virtual int disk_read(uint8_t * data, uint64_t block, uint8_t count); 
-    //-----------------------------------------------------------------------------  
     virtual int disk_status();
+    virtual int disk_read(uint8_t * buffer, uint64_t block_number, uint8_t count);
+    virtual int disk_write(const uint8_t * buffer, uint64_t block_number, uint8_t count);
     virtual int disk_sync();
     virtual uint64_t disk_sectors();
-    virtual uint64_t disk_size();
     
+    virtual uint64_t disk_size(){return _sectors*512;};
+ 
 protected:
-    int _status;
-    char disk_image[512*5];
-
+ 
+    int _cmd(int cmd, int arg);
+    int _cmdx(int cmd, int arg);
+    int _cmd8();
+    int _cmd58();
+    int initialise_card();
+    int initialise_card_v1();
+    int initialise_card_v2();
+    
+    int _read(uint8_t * buffer, uint32_t length);
+    int _write(const uint8_t *buffer, uint32_t length);
+    uint64_t _sd_sectors();
+    uint64_t _sectors;
+    
+    uint8_t _status;
+    
+    SPI _spi;
+    DigitalOut _cs;
+    int cdv;
 };
-
+ 
 #endif

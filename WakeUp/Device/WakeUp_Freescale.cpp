@@ -1,4 +1,4 @@
-#if defined(TARGET_Freescale)
+#if defined(TARGET_Freescale) && !defined(TARGET_KL25Z)
 
 #include "WakeUp.h"
 #include "us_ticker_api.h"

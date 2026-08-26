@@ -214,15 +214,18 @@ int USBMSD_Ram::disk_initialize() {
     return 0;
 }
 
-int USBMSD_Ram::disk_write(const uint8_t * buffer, uint64_t block_number) { 
-    memcpy((void *)&disk_image[block_number*512], buffer, 512);
-    return 0;    
-}
-
-int USBMSD_Ram::disk_read(uint8_t * buffer, uint64_t block_number) {
-    memcpy(buffer, &disk_image[block_number*512], 512);
+//--- Updated to match the current USBMSD interface in the USBDevice library -----
+int USBMSD_Ram::disk_read(uint8_t * data, uint64_t block, uint8_t count) {
+    memcpy(data, &disk_image[block * 512], count * 512);
     return 0;
 }
+
+// Updated to match the current USBMSD interface in the USBDevice library
+int USBMSD_Ram::disk_write(const uint8_t * data, uint64_t block, uint8_t count) {
+    memcpy(&disk_image[block * 512], data, count * 512);
+    return 0;
+}
+//---------------------------------------------------------------------------------
 
 int USBMSD_Ram::disk_status() { return _status; }
 int USBMSD_Ram::disk_sync() { return 0; }
